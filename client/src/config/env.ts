@@ -1,7 +1,7 @@
 // Environment configuration using Vite
 export const env = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL ,
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
   
   // App Information
   APP_NAME: import.meta.env.VITE_APP_NAME || 'Saham Trading Platform',
@@ -9,7 +9,7 @@ export const env = {
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
   
   // Domain Configuration
-  DOMAIN: import.meta.env.VITE_DOMAIN ,
+  DOMAIN: import.meta.env.VITE_DOMAIN || 'localhost:3000',
   
   // Contact Information
   SUPPORT_EMAIL: import.meta.env.VITE_SUPPORT_EMAIL || 'support@sahamtradingplc.com',

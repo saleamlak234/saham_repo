@@ -276,7 +276,7 @@ export default function Deposits() {
   };
 
   const viewReceipt = (receiptUrl: string) => {
-    const baseURL = 'http://www.sahamtradingplc.com ||https://www.sahamtradingplc.com'   
+    const baseURL = 'http://www.sahamtradingplc.com ||https://www.sahamtradingplc.com || http://localhost:5000/api'; // Adjust base URL as needed
      const fullReceiptUrl = receiptUrl.startsWith(
     "http|https|https|ftp|ftps|file|telnet|irc|gopher|nntp|news|ftps|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https"
     )
