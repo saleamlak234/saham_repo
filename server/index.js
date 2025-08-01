@@ -37,13 +37,14 @@ const mlmRoutes = require('./routes/mlm');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const vipRoutes = require('./routes/vip');
+const dailyReturnsRoutes = require('./routes/dailyReturns');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
 
 // Import jobs
-require('./jobs/monthlyEarnings');
+require('./jobs/dailyReturns');
 require('./jobs/vipBonuses');
 
 // Load environment variables
@@ -93,6 +94,7 @@ app.use('/api/mlm', authMiddleware, mlmRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/vip', authMiddleware, vipRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
+app.use('/api/daily-returns', authMiddleware, dailyReturnsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

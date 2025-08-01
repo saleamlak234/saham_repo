@@ -14,6 +14,7 @@ import Withdrawals from './pages/Withdrawals';
 import Commissions from './pages/Commissions';
 import MLMTree from './pages/MLMTree';
 import VipLevels from './pages/VipLevels';
+import DailyReturns from './pages/DailyReturns';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminTransactions from './pages/admin/AdminTransactions';
@@ -43,6 +44,7 @@ function App() {
         <Route path="commissions" element={user ? <Commissions /> : <Navigate to="/login" />} />
         <Route path="mlm-tree" element={user ? <MLMTree /> : <Navigate to="/login" />} />
         <Route path="vip-levels" element={user ? <VipLevels /> : <Navigate to="/login" />} />
+        <Route path="daily-returns" element={user ? <DailyReturns /> : <Navigate to="/login" />} />
         
         {/* Admin Routes */}
         <Route path="admin" element={user?.role === 'admin' || user?.role === 'super_admin' ? <AdminDashboard /> : <Navigate to="/dashboard" />} />

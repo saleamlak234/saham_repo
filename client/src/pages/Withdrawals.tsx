@@ -111,6 +111,7 @@ const WITHDRAWAL_PACKAGES = [
 export default function Withdrawals() {
   const { user } = useAuth();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [withdrawalSchedule, setWithdrawalSchedule] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWithdrawForm, setShowWithdrawForm] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string>('');
@@ -127,6 +128,7 @@ export default function Withdrawals() {
 
   useEffect(() => {
     fetchWithdrawals();
+    fetchWithdrawalSchedule();
   }, []);
 
   const fetchWithdrawals = async () => {
@@ -137,6 +139,15 @@ export default function Withdrawals() {
       console.error('Failed to fetch withdrawals:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWithdrawalSchedule = async () => {
+    try {
+      const response = await axios.get('/withdrawals/schedule');
+      setWithdrawalSchedule(response.data);
+    } catch (error) {
+      console.error('Failed to fetch withdrawal schedule:', error);
     }
   };
 
@@ -260,14 +271,38 @@ export default function Withdrawals() {
             </div>
             <button
               onClick={() => setShowWithdrawForm(true)}
-              disabled={(user?.balance || 0) < 200}
+              disabled={(user?.balance || 0) < 200 || (withdrawalSchedule && !withdrawalSchedule.isWithdrawalAllowed)}
               className="flex items-center px-6 py-3 space-x-2 font-medium text-white rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                (user?.balance || 0) < 200 
+                  ? "Insufficient balance for minimum withdrawal" 
+                  : withdrawalSchedule && !withdrawalSchedule.isWithdrawalAllowed
+                    ? "Withdrawals only available 4:00 AM - 11:00 AM EAT"
+                    : ""
+              }
             >
               <ArrowUpRight className="w-5 h-5" />
               <span>Withdraw</span>
             </button>
           </div>
         </div>
+
+        {withdrawalSchedule && !withdrawalSchedule.isWithdrawalAllowed && (
+          <div className="flex items-center p-4 mb-6 space-x-2 border border-yellow-200 rounded-lg bg-yellow-50">
+            <Clock className="flex-shrink-0 w-5 h-5 text-yellow-600" />
+            <div>
+              <p className="font-medium text-yellow-800">
+                Withdrawals are only available between 4:00 AM - 11:00 AM Ethiopian Time
+              </p>
+              <p className="text-sm text-yellow-700">
+                Current time: {new Date(withdrawalSchedule.currentTime).toLocaleString()} EAT
+              </p>
+              <p className="text-sm text-yellow-700">
+                Next window opens: {new Date(withdrawalSchedule.nextWithdrawalWindow).toLocaleString()} EAT
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Balance Warning */}
         {(user?.balance || 0) < 200 && (

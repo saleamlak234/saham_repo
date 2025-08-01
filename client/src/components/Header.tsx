@@ -73,6 +73,16 @@ export default function Header() {
                 <Link to="/commissions" className="text-gray-700 transition-colors hover:text-primary-600">
                   Commissions
                 </Link>
+                <Link
+                  to="/daily-returns"
+                  className="text-gray-700 transition-colors hover:text-primary-600"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Daily Returns
+                </Link>
+                <Link to="/daily-returns" className="text-gray-700 transition-colors hover:text-primary-600">
+                  Daily Returns
+                </Link>
                 <Link to="/mlm-tree" className="text-gray-700 transition-colors hover:text-primary-600">
                   MLM Tree
                 </Link>
@@ -279,6 +289,14 @@ export default function Header() {
                     >
                       Admin Panel
                     </Link>
+                   <Link
+                     to="/daily-returns"
+                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                     onClick={() => setIsUserMenuOpen(false)}
+                   >
+                     <TrendingUp className="w-4 h-4 mr-3" />
+                     Daily Returns
+                   </Link>
                   )}
                   <button
                     onClick={() => {

@@ -984,6 +984,24 @@ export default function Deposits() {
                         </button>
                       </div>
                     </form>
+                    
+                    <div className="mt-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={upgradeFormData.multipleUpgrades || false}
+                          onChange={(e) => setUpgradeFormData(prev => ({ 
+                            ...prev, 
+                            multipleUpgrades: e.target.checked 
+                          }))}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Enable multiple package purchases</span>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Allow purchasing additional packages without upgrading existing ones
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

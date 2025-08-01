@@ -4,6 +4,7 @@ const Withdrawal = require("../models/Withdrawal");
 const WithdrawalSchedule = require("../models/WithdrawalSchedule");
 const User = require("../models/User");
 const telegramService = require("../services/telegram");
+const { isWithdrawalTimeAllowed, getNextWithdrawalWindow, getEthiopianTime } = require("../utils/timeUtils");
 
 const router = express.Router();
 
@@ -25,13 +26,8 @@ const WITHDRAWAL_PACKAGES = [
 // Check withdrawal schedule
 const isWithdrawalAllowed = async () => {
   try {
-    const schedule = await WithdrawalSchedule.findOne({ isActive: true });
-    if (!schedule) return true; // If no schedule set, allow withdrawals
-
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    return currentHour >= schedule.startHour && currentHour <= schedule.endHour;
+    // Use Ethiopian time for withdrawal restrictions
+    return isWithdrawalTimeAllowed();
   } catch (error) {
     console.error("Withdrawal schedule check error:", error);
     return false;
@@ -65,7 +61,17 @@ const validatePackage = (packageId) => {
 router.get("/schedule", async (req, res) => {
   try {
     const schedule = await WithdrawalSchedule.findOne({ isActive: true });
-    res.json({ schedule });
+    const currentTime = getEthiopianTime();
+    const isAllowed = isWithdrawalTimeAllowed();
+    const nextWindow = getNextWithdrawalWindow();
+    
+    res.json({ 
+      schedule,
+      currentTime: currentTime.format(),
+      isWithdrawalAllowed: isAllowed,
+      nextWithdrawalWindow: nextWindow.format(),
+      timezone: 'Africa/Addis_Ababa'
+    });
   } catch (error) {
     console.error("Get withdrawal schedule error:", error);
     res
@@ -111,12 +117,12 @@ router.post("/", async (req, res) => {
 
     // Check withdrawal schedule
     const isAllowed = await isWithdrawalAllowed();
-    if (isAllowed) {
-      const schedule = await WithdrawalSchedule.findOne({ isActive: true });
+    if (!isAllowed) {
+      const nextWindow = getNextWithdrawalWindow();
       return res.status(400).json({
-        message: `Withdrawals are only allowed between ${
-          schedule?.startHour || 4
-        }:00 and ${schedule?.endHour || 11}:00`,
+        message: `Withdrawals are only allowed between 4:00 AM and 11:00 AM Ethiopian Time. Next window opens at: ${nextWindow.format('YYYY-MM-DD HH:mm:ss')} EAT`,
+        nextWithdrawalWindow: nextWindow.format(),
+        currentTime: getEthiopianTime().format()
       });
     }
 

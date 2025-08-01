@@ -7,6 +7,7 @@ const MerchantAccount = require("../models/MerchantAccount");
 const User = require("../models/User");
 const Commission = require("../models/Commission");
 const telegramService = require("../services/telegram");
+const PackageUpgrade = require("../models/PackageUpgrade");
 
 const router = express.Router();
 
@@ -159,6 +160,7 @@ router.post(
         paymentMethod,
         merchantAccountId,
         transactionReference,
+        multipleUpgrades
       } = req.body;
       const userId = req.user._id;
 
@@ -189,10 +191,11 @@ router.post(
         });
       }
 
-      if (originalDeposit.isUpgraded) {
+      // Allow multiple upgrades if specified
+      if (originalDeposit.isUpgraded && !multipleUpgrades) {
         return res
           .status(400)
-          .json({ message: "This deposit has already been upgraded" });
+          .json({ message: "This deposit has already been upgraded. Enable multiple upgrades to continue." });
       }
 
       // Validate new package and amount
@@ -210,25 +213,28 @@ router.post(
         return res.status(400).json({ message: "Invalid package selected" });
       }
 
-      // Validate upgrade amount is the difference between new and original package prices
-      const expectedUpgradeAmount =
-        packagePrices[newPackage] - packagePrices[originalDeposit.package];
+      // For multiple upgrades, allow direct package purchase
+      let expectedUpgradeAmount;
+      if (multipleUpgrades) {
+        expectedUpgradeAmount = packagePrices[newPackage];
+      } else {
+        expectedUpgradeAmount = packagePrices[newPackage] - packagePrices[originalDeposit.package];
+      }
+      
       if (parseInt(newAmount) !== expectedUpgradeAmount) {
         return res
           .status(400)
           .json({ message: "Amount does not match upgrade cost" });
       }
 
-      // Check if new package is higher value than original
-      if (packagePrices[newPackage] <= packagePrices[originalDeposit.package]) {
+      // Check if new package is higher value than original (unless multiple upgrades)
+      if (!multipleUpgrades && packagePrices[newPackage] <= packagePrices[originalDeposit.package]) {
         return res
           .status(400)
           .json({ message: "You can only upgrade to a higher value package" });
       }
 
-      // Calculate upgrade amount (difference between packages)
-      const upgradeAmount =
-        packagePrices[newPackage] - packagePrices[originalDeposit.package];
+      const upgradeAmount = expectedUpgradeAmount;
 
       // Validate merchant account
       const merchantAccount = await MerchantAccount.findById(merchantAccountId);
@@ -242,7 +248,7 @@ router.post(
       const upgradeDeposit = new Deposit({
         user: userId,
         amount: upgradeAmount,
-        package: `${newPackage} (Upgrade from ${originalDeposit.package})`,
+        package: multipleUpgrades ? newPackage : `${newPackage} (Upgrade from ${originalDeposit.package})`,
         paymentMethod,
         merchantAccount: merchantAccountId,
         receiptUrl: req.file ? `/uploads/receipts/${req.file.filename}` : null,
@@ -252,28 +258,44 @@ router.post(
 
       await upgradeDeposit.save();
 
-      // Mark original deposit as upgraded
-      originalDeposit.isUpgraded = true;
-      originalDeposit.upgradedTo = upgradeDeposit._id;
-      await originalDeposit.save();
+      // Create package upgrade record
+      const packageUpgrade = new PackageUpgrade({
+        user: userId,
+        originalDeposit: originalDeposit._id,
+        upgradeDeposit: upgradeDeposit._id,
+        fromPackage: originalDeposit.package,
+        toPackage: newPackage,
+        upgradeAmount: upgradeAmount,
+        status: 'pending'
+      });
+      
+      await packageUpgrade.save();
+
+      // Mark original deposit as upgraded (if not multiple upgrades)
+      if (!multipleUpgrades) {
+        originalDeposit.isUpgraded = true;
+        originalDeposit.upgradedTo = upgradeDeposit._id;
+        await originalDeposit.save();
+      }
 
       console.log("Upgrade deposit created successfully:", upgradeDeposit._id);
       // Send notification to admin
       await telegramService.sendToAdmin(
-        `📈 Package upgrade request:\n` +
+        `📈 ${multipleUpgrades ? 'Multiple package' : 'Package upgrade'} request:\n` +
           `User: ${req.user.fullName}\n` +
           `Original: ${originalDeposit.package} (${originalDeposit.amount.toLocaleString()} ETB)\n` +
-          `Upgrade to: ${newPackage} (${packagePrices[newPackage].toLocaleString()} ETB)\n` +
+          `${multipleUpgrades ? 'New package' : 'Upgrade to'}: ${newPackage} (${packagePrices[newPackage].toLocaleString()} ETB)\n` +
           `Upgrade amount: ${upgradeAmount.toLocaleString()} ETB\n` +
           `Payment: ${paymentMethod}\n` +
           `Reference: ${transactionReference || "N/A"}`
       );
 
       res.status(201).json({
-        message: "Package upgrade request submitted successfully",
+        message: multipleUpgrades ? "Additional package request submitted successfully" : "Package upgrade request submitted successfully",
         upgradeDeposit,
         originalDeposit,
         upgradeAmount,
+        packageUpgrade
       });
     } catch (error) {
       console.error("Upgrade deposit error:", error);
@@ -291,7 +313,6 @@ router.get("/upgradeable", async (req, res) => {
     const upgradeableDeposits = await Deposit.find({
       user: req.user._id,
       status: "completed",
-      isUpgraded: false,
     })
       .populate("merchantAccount")
       .sort({ createdAt: -1 });
