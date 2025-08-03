@@ -44,8 +44,7 @@ const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
 
 // Import jobs
-require('./jobs/dailyReturns');
-require('./jobs/vipBonuses');
+const { initializeScheduledJobs } = require('./jobs/scheduledJobs');
 
 // Load environment variables
 dotenv.config();
@@ -84,6 +83,12 @@ mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
+// Initialize scheduled jobs after database connection
+mongoose.connection.once('open', () => {
+  console.log('Database connected, initializing scheduled jobs...');
+  initializeScheduledJobs();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', authMiddleware, userRoutes);
@@ -115,6 +120,8 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Server started at: ${new Date().toISOString()}`);
+  console.log(`Ethiopian Time: ${require('./utils/timeUtils').getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')}`);
 });
 
 module.exports = app;

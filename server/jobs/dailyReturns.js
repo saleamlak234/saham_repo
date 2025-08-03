@@ -20,18 +20,30 @@ const PACKAGE_CONFIG = {
 // Daily return commission rates (1.5% total distributed across 4 levels)
 const DAILY_COMMISSION_RATES = [0.006, 0.003, 0.002, 0.001]; // 0.6%, 0.3%, 0.2%, 0.1%
 
-// Run daily returns job at 1:00 AM Ethiopian Time
-cron.schedule('0 1 * * *', async () => {
-  console.log('Running daily returns job at Ethiopian Time:', getEthiopianTime().format());
+// Run daily returns job at midnight (00:00) Ethiopian Time
+cron.schedule('0 0 * * *', async () => {
+  const currentTime = getEthiopianTime();
+  console.log('Running daily returns job at Ethiopian Time:', currentTime.format('YYYY-MM-DD HH:mm:ss [EAT]'));
+  console.log("Test run at:", new Date().toISOString());
   await processDailyReturns();
 }, {
   timezone: 'Africa/Addis_Ababa'
 });
 
+// Alternative schedule - run at 1:00 AM if you prefer
+// cron.schedule('0 1 * * *', async () => {
+//   console.log('Running daily returns job at 1:00 AM EAT:', getEthiopianTime().format());
+//   console.log("Test run at:", new Date().toISOString());
+//   await processDailyReturns();
+// }, {
+//   timezone: 'Africa/Addis_Ababa'
+// });
+
 async function processDailyReturns() {
   try {
     const today = getEthiopianDateString();
-    console.log(`Processing daily returns for ${today}`);
+    console.log(`Processing daily returns for ${today} at:`, getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
+    console.log("UTC Time:", new Date().toISOString());
 
     // Get all completed deposits
     const completedDeposits = await Deposit.find({ 
@@ -102,14 +114,15 @@ async function processDailyReturns() {
         console.log(`Processed daily return for user ${deposit.user.fullName}: ${dailyReturnAmount} ETB`);
 
       } catch (error) {
-        console.error(`Error processing daily return for deposit ${deposit._id}:`, error);
+        console.error(`Error processing daily return for deposit ${deposit._id} at ${new Date().toISOString()}:`, error);
       }
     }
 
-    console.log(`Daily returns job completed: ${processedCount} returns processed, total amount: ${totalReturnsAmount.toLocaleString()} ETB`);
+    console.log(`Daily returns job completed at ${getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')}: ${processedCount} returns processed, total amount: ${totalReturnsAmount.toLocaleString()} ETB`);
 
   } catch (error) {
     console.error('Daily returns job error:', error);
+    console.error('Error timestamp:', new Date().toISOString());
   }
 }
 

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "test-cron": "node -e \"require('./jobs/testCronJob.js'); setTimeout(() => process.exit(0), 65000);\""
   },
   "dependencies": {
     "axios": "^1.6.7",

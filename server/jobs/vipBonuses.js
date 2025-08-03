@@ -2,11 +2,15 @@ const cron = require('node-cron');
 const User = require('../models/User');
 const VipBonus = require('../models/VipBonus');
 const telegramService = require('../services/telegram');
+const { getEthiopianTime } = require('../utils/timeUtils');
 
-// Run VIP bonus job on the 1st of every month at 01:00
-cron.schedule('0 1 1 * *', async () => {
-  console.log('Running VIP bonus job...');
+// Run VIP bonus job on the 1st of every month at midnight Ethiopian Time
+cron.schedule('0 0 1 * *', async () => {
+  console.log('Running VIP bonus job at Ethiopian Time:', getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
+  console.log("Test run at:", new Date().toISOString());
   await processVipBonuses();
+}, {
+  timezone: 'Africa/Addis_Ababa'
 });
 
 async function processVipBonuses() {
@@ -102,9 +106,11 @@ async function processVipBonuses() {
       }
     }
 
-    console.log('VIP bonus job completed successfully');
+    console.log('VIP bonus job completed successfully at:', getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
+    console.log('Completion timestamp:', new Date().toISOString());
   } catch (error) {
     console.error('VIP bonus job error:', error);
+    console.error('Error timestamp:', new Date().toISOString());
   }
 }
 

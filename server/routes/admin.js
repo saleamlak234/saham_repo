@@ -6,6 +6,7 @@ const WithdrawalSchedule = require("../models/WithdrawalSchedule");
 const MerchantAccount = require("../models/MerchantAccount");
 const Commission = require("../models/Commission");
 const telegramService = require("../services/telegram");
+const { runDailyReturnsNow, runVipBonusesNow, cronScheduler } = require("../jobs/scheduledJobs");
 
 const router = express.Router();
 
@@ -539,5 +540,59 @@ async function processDepositCommissions(deposit) {
     console.error("Commission processing error:", error);
   }
 }
+
+// Manual job execution endpoints (Super Admin only)
+router.post("/jobs/daily-returns", checkAdminPermission("super_admin"), async (req, res) => {
+  try {
+    console.log("Manual daily returns job triggered by admin");
+    console.log("Test run at:", new Date().toISOString());
+    
+    await runDailyReturnsNow();
+    
+    res.json({ 
+      message: "Daily returns job executed successfully",
+      timestamp: new Date().toISOString(),
+      ethiopianTime: require("../utils/timeUtils").getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')
+    });
+  } catch (error) {
+    console.error("Manual daily returns job error:", error);
+    res.status(500).json({ message: "Failed to execute daily returns job" });
+  }
+});
+
+router.post("/jobs/vip-bonuses", checkAdminPermission("super_admin"), async (req, res) => {
+  try {
+    console.log("Manual VIP bonuses job triggered by admin");
+    console.log("Test run at:", new Date().toISOString());
+    
+    await runVipBonusesNow();
+    
+    res.json({ 
+      message: "VIP bonuses job executed successfully",
+      timestamp: new Date().toISOString(),
+      ethiopianTime: require("../utils/timeUtils").getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')
+    });
+  } catch (error) {
+    console.error("Manual VIP bonuses job error:", error);
+    res.status(500).json({ message: "Failed to execute VIP bonuses job" });
+  }
+});
+
+// Get cron job status
+router.get("/jobs/status", checkAdminPermission("super_admin"), (req, res) => {
+  try {
+    const jobs = cronScheduler.listJobs();
+    res.json({ 
+      jobs,
+      currentTime: {
+        utc: new Date().toISOString(),
+        ethiopian: require("../utils/timeUtils").getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')
+      }
+    });
+  } catch (error) {
+    console.error("Get job status error:", error);
+    res.status(500).json({ message: "Failed to get job status" });
+  }
+});
 
 module.exports = router;
