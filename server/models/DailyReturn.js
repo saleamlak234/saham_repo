@@ -17,10 +17,11 @@ const dailyReturnSchema = new mongoose.Schema({
   },
   returnPercentage: {
     type: Number,
-    required: true
+    required: true,
+    default: 0.15 // 15% daily return
   },
   date: {
-    type: Date,
+    type: String, // Store as YYYY-MM-DD string for Ethiopian date
     required: true
   },
   status: {
@@ -31,6 +32,16 @@ const dailyReturnSchema = new mongoose.Schema({
   processedAt: {
     type: Date,
     default: Date.now
+  },
+  commissionsDistributed: {
+    type: Number,
+    default: 0
+  },
+  commissionBreakdown: {
+    level1: { type: Number, default: 0 },
+    level2: { type: Number, default: 0 },
+    level3: { type: Number, default: 0 },
+    level4: { type: Number, default: 0 }
   }
 }, {
   timestamps: true
@@ -38,5 +49,9 @@ const dailyReturnSchema = new mongoose.Schema({
 
 // Compound index to prevent duplicate returns for same deposit/date
 dailyReturnSchema.index({ deposit: 1, date: 1 }, { unique: true });
+
+// Index for efficient querying
+dailyReturnSchema.index({ user: 1, date: -1 });
+dailyReturnSchema.index({ date: -1 });
 
 module.exports = mongoose.model('DailyReturn', dailyReturnSchema);

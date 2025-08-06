@@ -1,5 +1,7 @@
 const express = require('express');
 const DailyReturn = require('../models/DailyReturn');
+const Deposit = require('../models/Deposit');
+const Commission = require('../models/Commission');
 const { getEthiopianDateString } = require('../utils/timeUtils');
 
 const router = express.Router();
@@ -44,27 +46,7 @@ router.get('/', async (req, res) => {
     .populate('deposit', 'package amount')
     .sort({ date: -1 });
 
-    // Calculate statistics
-    const totalReturns = await DailyReturn.aggregate([
-      { $match: { user: userId } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    const todayReturns = await DailyReturn.aggregate([
-      { 
-        $match: { 
-          user: userId, 
-          date: getEthiopianDateString() 
-        } 
-      },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    res.json({
-      dailyReturns,
-      totalReturns: totalReturns[0]?.total || 0,
-      todayReturns: todayReturns[0]?.total || 0
-    });
+    res.json({ dailyReturns });
   } catch (error) {
     console.error('Get daily returns error:', error);
     res.status(500).json({ message: 'Server error fetching daily returns' });
@@ -125,20 +107,78 @@ router.get('/stats', async (req, res) => {
         $group: {
           _id: '$depositInfo.package',
           total: { $sum: '$amount' },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          averageDaily: { $avg: '$amount' }
         }
       }
+    ]);
+
+    // Commission earnings from daily returns
+    const dailyReturnCommissions = await Commission.aggregate([
+      { 
+        $match: { 
+          user: userId, 
+          type: 'earning',
+          sourceModel: 'DailyReturn'
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     res.json({
       totalReturns: totalReturns[0]?.total || 0,
       todayReturns: todayReturns[0]?.total || 0,
       monthlyReturns: monthlyReturns[0]?.total || 0,
-      returnsByPackage
+      returnsByPackage,
+      dailyReturnCommissions: dailyReturnCommissions[0]?.total || 0
     });
   } catch (error) {
     console.error('Get daily returns stats error:', error);
     res.status(500).json({ message: 'Server error fetching daily returns statistics' });
+  }
+});
+
+// Get commission breakdown for daily returns
+router.get('/commissions', async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get commissions earned from daily returns by level
+    const commissionsByLevel = await Commission.aggregate([
+      { 
+        $match: { 
+          user: userId, 
+          type: 'earning',
+          sourceModel: 'DailyReturn'
+        } 
+      },
+      {
+        $group: {
+          _id: '$level',
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Get recent daily return commissions
+    const recentCommissions = await Commission.find({
+      user: userId,
+      type: 'earning',
+      sourceModel: 'DailyReturn'
+    })
+    .populate('fromUser', 'fullName email')
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+    res.json({
+      commissionsByLevel,
+      recentCommissions
+    });
+  } catch (error) {
+    console.error('Get daily return commissions error:', error);
+    res.status(500).json({ message: 'Server error fetching commission data' });
   }
 });
 

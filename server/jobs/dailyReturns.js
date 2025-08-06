@@ -6,7 +6,7 @@ const Commission = require('../models/Commission');
 const { getEthiopianTime, getEthiopianDateString } = require('../utils/timeUtils');
 const telegramService = require('../services/telegram');
 
-// Package configurations with daily return percentages
+// Package configurations with 15% daily return
 const PACKAGE_CONFIG = {
   '7th Stock Package': { dailyReturn: 0.15, amount: 192000 },
   '6th Stock Package': { dailyReturn: 0.15, amount: 96000 },
@@ -17,33 +17,27 @@ const PACKAGE_CONFIG = {
   '1st Stock Package': { dailyReturn: 0.15, amount: 3000 }
 };
 
-// Daily return commission rates (1.5% total distributed across 4 levels)
-const DAILY_COMMISSION_RATES = [0.006, 0.003, 0.002, 0.001]; // 0.6%, 0.3%, 0.2%, 0.1%
+// Daily return commission rates (15% total distributed across 4 levels)
+const DAILY_COMMISSION_RATES = [0.08, 0.04, 0.02, 0.01]; // 8%, 4%, 2%, 1%
 
 // Run daily returns job at midnight (00:00) Ethiopian Time
 cron.schedule('0 0 * * *', async () => {
   const currentTime = getEthiopianTime();
-  console.log('Running daily returns job at Ethiopian Time:', currentTime.format('YYYY-MM-DD HH:mm:ss [EAT]'));
-  console.log("Test run at:", new Date().toISOString());
+  console.log('=== DAILY RETURNS JOB STARTED ===');
+  console.log('Ethiopian Time:', currentTime.format('YYYY-MM-DD HH:mm:ss [EAT]'));
+  console.log('UTC Time:', new Date().toISOString());
+  console.log('Test run at:', new Date().toISOString());
   await processDailyReturns();
 }, {
   timezone: 'Africa/Addis_Ababa'
 });
 
-// Alternative schedule - run at 1:00 AM if you prefer
-// cron.schedule('0 1 * * *', async () => {
-//   console.log('Running daily returns job at 1:00 AM EAT:', getEthiopianTime().format());
-//   console.log("Test run at:", new Date().toISOString());
-//   await processDailyReturns();
-// }, {
-//   timezone: 'Africa/Addis_Ababa'
-// });
-
 async function processDailyReturns() {
   try {
     const today = getEthiopianDateString();
-    console.log(`Processing daily returns for ${today} at:`, getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
-    console.log("UTC Time:", new Date().toISOString());
+    console.log(`Processing daily returns for ${today}`);
+    console.log('Ethiopian Time:', getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
+    console.log('UTC Time:', new Date().toISOString());
 
     // Get all completed deposits
     const completedDeposits = await Deposit.find({ 
@@ -52,6 +46,9 @@ async function processDailyReturns() {
 
     let processedCount = 0;
     let totalReturnsAmount = 0;
+    let totalCommissionsDistributed = 0;
+
+    console.log(`Found ${completedDeposits.length} completed deposits to process`);
 
     for (const deposit of completedDeposits) {
       try {
@@ -69,12 +66,18 @@ async function processDailyReturns() {
         // Get package configuration
         const packageConfig = PACKAGE_CONFIG[deposit.package];
         if (!packageConfig) {
-          console.log(`Unknown package: ${deposit.package}`);
+          console.log(`Unknown package: ${deposit.package} for deposit ${deposit._id}`);
           continue;
         }
 
-        // Calculate daily return
+        // Calculate 15% daily return
         const dailyReturnAmount = deposit.amount * packageConfig.dailyReturn;
+
+        console.log(`Processing deposit ${deposit._id}:`);
+        console.log(`- User: ${deposit.user.fullName}`);
+        console.log(`- Package: ${deposit.package}`);
+        console.log(`- Deposit Amount: ${deposit.amount.toLocaleString()} ETB`);
+        console.log(`- Daily Return (15%): ${dailyReturnAmount.toLocaleString()} ETB`);
 
         // Create daily return record
         const dailyReturn = new DailyReturn({
@@ -93,8 +96,9 @@ async function processDailyReturns() {
           $inc: { balance: dailyReturnAmount }
         });
 
-        // Process daily return commissions
-        await processDailyReturnCommissions(deposit, dailyReturnAmount);
+        // Process daily return commissions (15% distributed across 4 levels)
+        const commissionsDistributed = await processDailyReturnCommissions(deposit, dailyReturnAmount);
+        totalCommissionsDistributed += commissionsDistributed;
 
         // Send notification to user
         if (deposit.user.telegramChatId) {
@@ -102,41 +106,59 @@ async function processDailyReturns() {
             deposit.user.telegramChatId,
             `💰 Daily Return Credited!\n\n` +
             `Package: ${deposit.package}\n` +
-            `Amount: ${dailyReturnAmount.toLocaleString()} ETB\n` +
+            `Daily Return (15%): ${dailyReturnAmount.toLocaleString()} ETB\n` +
             `Date: ${today}\n` +
-            `Your balance has been updated.`
+            `Your balance has been updated.\n\n` +
+            `New Balance: ${(deposit.user.balance + dailyReturnAmount).toLocaleString()} ETB`
           );
         }
 
         processedCount++;
         totalReturnsAmount += dailyReturnAmount;
 
-        console.log(`Processed daily return for user ${deposit.user.fullName}: ${dailyReturnAmount} ETB`);
+        console.log(`✅ Processed daily return for ${deposit.user.fullName}: ${dailyReturnAmount.toLocaleString()} ETB`);
 
       } catch (error) {
-        console.error(`Error processing daily return for deposit ${deposit._id} at ${new Date().toISOString()}:`, error);
+        console.error(`❌ Error processing daily return for deposit ${deposit._id}:`, error);
+        console.error('Error timestamp:', new Date().toISOString());
       }
     }
 
-    console.log(`Daily returns job completed at ${getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')}: ${processedCount} returns processed, total amount: ${totalReturnsAmount.toLocaleString()} ETB`);
+    console.log('=== DAILY RETURNS JOB COMPLETED ===');
+    console.log(`Ethiopian Time: ${getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]')}`);
+    console.log(`UTC Time: ${new Date().toISOString()}`);
+    console.log(`Processed: ${processedCount} returns`);
+    console.log(`Total Returns: ${totalReturnsAmount.toLocaleString()} ETB`);
+    console.log(`Total Commissions: ${totalCommissionsDistributed.toLocaleString()} ETB`);
+    console.log('=====================================');
 
   } catch (error) {
-    console.error('Daily returns job error:', error);
+    console.error('❌ Daily returns job error:', error);
     console.error('Error timestamp:', new Date().toISOString());
+    console.error('Ethiopian Time:', getEthiopianTime().format('YYYY-MM-DD HH:mm:ss [EAT]'));
   }
 }
 
 async function processDailyReturnCommissions(deposit, returnAmount) {
   try {
     const user = await User.findById(deposit.user).populate('referredBy');
-    if (!user || !user.referredBy) return;
+    if (!user || !user.referredBy) {
+      console.log(`No referrer found for user ${user?.fullName || 'Unknown'}`);
+      return 0;
+    }
 
     let currentUser = user.referredBy;
     let level = 1;
+    let totalCommissionsDistributed = 0;
+
+    console.log(`Processing commissions for ${user.fullName}'s daily return of ${returnAmount.toLocaleString()} ETB`);
 
     while (currentUser && level <= 4) {
+      // Calculate commission: 8%, 4%, 2%, 1% of daily return
       const commissionAmount = returnAmount * DAILY_COMMISSION_RATES[level - 1];
       
+      console.log(`- Level ${level} commission to ${currentUser.fullName}: ${commissionAmount.toLocaleString()} ETB (${(DAILY_COMMISSION_RATES[level - 1] * 100)}%)`);
+
       // Create commission record
       const commission = new Commission({
         user: currentUser._id,
@@ -144,7 +166,7 @@ async function processDailyReturnCommissions(deposit, returnAmount) {
         amount: commissionAmount,
         level,
         type: 'earning',
-        description: `Level ${level} daily return commission from ${user.fullName}`,
+        description: `Level ${level} daily return commission (${(DAILY_COMMISSION_RATES[level - 1] * 100)}%) from ${user.fullName}`,
         sourceTransaction: deposit._id,
         sourceModel: 'DailyReturn'
       });
@@ -159,14 +181,18 @@ async function processDailyReturnCommissions(deposit, returnAmount) {
         }
       });
 
+      totalCommissionsDistributed += commissionAmount;
+
       // Send notification
       if (currentUser.telegramChatId) {
         await telegramService.sendMessage(
           currentUser.telegramChatId,
-          `💰 Daily Commission Earned!\n` +
+          `💰 Daily Commission Earned!\n\n` +
           `Amount: ${commissionAmount.toLocaleString()} ETB\n` +
-          `Level: ${level}\n` +
-          `From: ${user.fullName}'s daily return`
+          `Level: ${level} (${(DAILY_COMMISSION_RATES[level - 1] * 100)}%)\n` +
+          `From: ${user.fullName}'s daily return\n` +
+          `Source: ${deposit.package}\n\n` +
+          `Your balance has been updated!`
         );
       }
 
@@ -175,14 +201,20 @@ async function processDailyReturnCommissions(deposit, returnAmount) {
       currentUser = nextUser?.referredBy;
       level++;
     }
+
+    console.log(`Total commissions distributed: ${totalCommissionsDistributed.toLocaleString()} ETB`);
+    return totalCommissionsDistributed;
+
   } catch (error) {
     console.error('Daily return commission processing error:', error);
+    return 0;
   }
 }
 
 // Export for manual testing
 module.exports = { 
   processDailyReturns,
+  processDailyReturnCommissions,
   PACKAGE_CONFIG,
   DAILY_COMMISSION_RATES
 };
