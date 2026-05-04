@@ -123,6 +123,45 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['am', 'ti', 'or', 'en'],
     default: 'am'
+  },
+  // Debt System
+  debtAmount: {
+    type: Number,
+    default: 0
+  },
+  debtToUplineId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  isDashboardLocked: {
+    type: Boolean,
+    default: false
+  },
+  // Monthly salary balance (kept separate, paid by admin)
+  monthlyBalance: {
+    type: Number,
+    default: 0
+  },
+  // Payment info for receiving debt/commission payments
+  paymentInfo: {
+    bankAccounts: [{
+      bankName: { type: String, default: '' },
+      accountName: { type: String, default: '' },
+      accountNumber: { type: String, default: '' },
+      branchName: { type: String, default: '' },
+      isDefault: { type: Boolean, default: false }
+    }],
+    telebirr: {
+      phoneNumber: { type: String, default: '' },
+      fullName: { type: String, default: '' },
+      isActive: { type: Boolean, default: false }
+    },
+    cbeBirr: {
+      phoneNumber: { type: String, default: '' },
+      fullName: { type: String, default: '' },
+      isActive: { type: Boolean, default: false }
+    }
   }
 }, {
   timestamps: true

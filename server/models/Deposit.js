@@ -58,6 +58,10 @@ const depositSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isUpgrade: {
+      type: Boolean,
+      default: false,
+    },
     upgradedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Deposit",
@@ -68,6 +72,39 @@ const depositSchema = new mongoose.Schema(
       ref: "Deposit",
       default: null,
     },
+    // New fields for parent-approval flow
+    packageLevel: {
+      type: Number,
+      min: 1,
+      max: 8,
+      default: null
+    },
+    uplineId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    receiptFileName: {
+      type: String,
+      default: null
+    },
+    commissionPaid: {
+      type: Boolean,
+      default: false
+    },
+    commissionAmount: {
+      type: Number,
+      default: 0
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    approvedAt: {
+      type: Date,
+      default: null
+    }
   },
 
   {

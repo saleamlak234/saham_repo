@@ -2,22 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ImagePreviewModal from '../components/ImagePreviewModal';
-import {
-  Plus,
-  Upload,
-  CreditCard,
-  Smartphone,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Camera,
-  DollarSign,
-  Copy,
-  CheckCircle2,
-  Eye,
-  Calculator,
-  TrendingUp
-} from 'lucide-react';
+import { Plus, Upload, CreditCard, Smartphone, Clock, CircleCheck as CheckCircle, Circle as XCircle, Camera, DollarSign, Copy, CircleCheck as CheckCircle2, Eye, Calculator, TrendingUp } from 'lucide-react';
 import axios from 'axios';
 
 interface Deposit {
@@ -58,13 +43,14 @@ interface MerchantAccount {
 }
 
 const PACKAGES = [
-  { name: '7th Stock Package', price: 192000, dailyReturn: 3200 },
-  { name: '6th Stock Package', price: 96000, dailyReturn: 1600 },
-  { name: '5th Stock Package', price: 48000, dailyReturn: 800 },
-  { name: '4th Stock Package', price: 24000, dailyReturn: 400 },
-  { name: '3rd Stock Package', price: 12000, dailyReturn: 200 },
-  { name: '2nd Stock Package', price: 6000, dailyReturn: 100 },
-  { name: '1st Stock Package', price: 3000, dailyReturn: 50 }
+  { level: 1, name: '1st Package (Starter)', price: 2500,   dailyReturn: 125  },
+  { level: 2, name: '2nd Package (Silver)',  price: 5000,   dailyReturn: 250  },
+  { level: 3, name: '3rd Package (Gold)',    price: 10000,  dailyReturn: 500  },
+  { level: 4, name: '4th Package (Platinum)',price: 20000,  dailyReturn: 1000 },
+  { level: 5, name: '5th Package (Diamond)', price: 40000,  dailyReturn: 2000 },
+  { level: 6, name: '6th Package (Elite)',   price: 80000,  dailyReturn: 4000 },
+  { level: 7, name: '7th Package (Master)',  price: 160000, dailyReturn: 8000 },
+  { level: 8, name: '8th Package (Premium)', price: 320000, dailyReturn: 16000 }
 ];
 
 export default function Deposits() {
@@ -223,20 +209,22 @@ export default function Deposits() {
     setError('');
 
     try {
+      const selectedPkg = PACKAGES.find(p => p.name === formData.package);
       const formDataToSend = new FormData();
       formDataToSend.append('amount', formData.amount);
       formDataToSend.append('package', formData.package);
+      // New fields for parent-approval flow
+      if (selectedPkg) formDataToSend.append('packageLevel', selectedPkg.level.toString());
       formDataToSend.append('paymentMethod', formData.paymentMethod);
-      formDataToSend.append('merchantAccountId', formData.merchantAccountId);
+      formDataToSend.append('merchantAccountId', formData.merchantAccountId || '');
       formDataToSend.append('transactionReference', formData.transactionReference);
       if (receipt) {
         formDataToSend.append('receipt', receipt);
       }
 
-      await axios.post('/deposits', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      // Use payments route for parent-approval flow, fallback to deposits
+      await axios.post('/payments/submit-deposit', formDataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       setShowDepositForm(false);

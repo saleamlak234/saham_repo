@@ -3,19 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { env } from '../config/env';
-import {
-  TrendingUp,
-  User,
-  Menu,
-  X,
-  LogOut,
-  DollarSign,
-  Users,
-  Award,
-  BarChart3,
-  Shield,
-  Crown
-} from 'lucide-react';
+import { TrendingUp, User, Menu, X, LogOut, DollarSign, Users, Award, ChartBar as BarChart3, Shield, Crown } from 'lucide-react';
 import PackageSlider from './PackageSlider';
 
 export default function Header() {
@@ -76,15 +64,14 @@ export default function Header() {
                 <Link
                   to="/daily-returns"
                   className="text-gray-700 transition-colors hover:text-primary-600"
-                  onClick={() => setIsMenuOpen(false)}
                 >
-                  Daily Returns
-                </Link>
-                <Link to="/daily-returns" className="text-gray-700 transition-colors hover:text-primary-600">
                   Daily Returns
                 </Link>
                 <Link to="/mlm-tree" className="text-gray-700 transition-colors hover:text-primary-600">
                   MLM Tree
+                </Link>
+                <Link to="/pending-payments" className="text-gray-700 transition-colors hover:text-primary-600">
+                  Approvals
                 </Link>
                 <Link to="/vip-levels" className="flex items-center space-x-1 font-medium transition-colors text-gold-600 hover:text-gold-700">
                   <Crown className="w-4 h-4" />
@@ -281,6 +268,27 @@ export default function Header() {
                   >
                     Profile
                   </Link>
+                  <Link
+                    to="/daily-returns"
+                    className="text-gray-700 transition-colors hover:text-primary-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Daily Returns
+                  </Link>
+                  <Link
+                    to="/mlm-tree"
+                    className="text-gray-700 transition-colors hover:text-primary-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    MLM Tree
+                  </Link>
+                  <Link
+                    to="/pending-payments"
+                    className="text-gray-700 transition-colors hover:text-primary-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Approvals
+                  </Link>
                   {(user.role === 'admin' || user.role === 'super_admin' || user.role === 'transaction_admin') && (
                     <Link
                       to="/admin"
@@ -289,14 +297,6 @@ export default function Header() {
                     >
                       Admin Panel
                     </Link>
-                   <Link
-                     to="/daily-returns"
-                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                     onClick={() => setIsUserMenuOpen(false)}
-                   >
-                     <TrendingUp className="w-4 h-4 mr-3" />
-                     Daily Returns
-                   </Link>
                   )}
                   <button
                     onClick={() => {

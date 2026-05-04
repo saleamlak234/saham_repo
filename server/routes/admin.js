@@ -483,56 +483,61 @@ async function processWithdrawal(withdrawal, action) {
   }
 }
 
-// Process commission for approved deposit
+// Process commission for approved deposit - 3 generations: 8%, 6%, 4%
 async function processDepositCommissions(deposit) {
   try {
     const user = await User.findById(deposit.user).populate("referredBy");
     if (!user || !user.referredBy) return;
 
-    const commissionRates = [0.08, 0.04, 0.02, 0.01]; // 8%, 4%, 2%, 1%
+    const commissionRates = [0.08, 0.06, 0.04]; // Gen 1: 8%, Gen 2: 6%, Gen 3: 4%
     let currentUser = user.referredBy;
     let level = 1;
 
-    while (currentUser && level <= 4) {
+    while (currentUser && level <= 3) {
       const commissionAmount = deposit.amount * commissionRates[level - 1];
 
-      // Create commission record
       const commission = new Commission({
         user: currentUser._id,
         fromUser: deposit.user,
         amount: commissionAmount,
         level,
         type: "deposit",
-        description: `Level ${level} commission from ${user.fullName}'s deposit`,
+        description: `Gen ${level} commission from ${user.fullName}'s deposit`,
         sourceTransaction: deposit._id,
         sourceModel: "Deposit",
       });
-
       await commission.save();
 
-      // Update user balance and commission total
-      await User.findByIdAndUpdate(currentUser._id, {
-        $inc: {
-          balance: commissionAmount,
-          totalCommissions: commissionAmount,
-        },
-      });
+      // Debt check for gen-1 upline: if debt > 0, don't credit balance
+      if (level === 1) {
+        const depositAfterComm = deposit.amount * 0.92;
+        const uplineBalance = currentUser.balance + (currentUser.totalCommissions || 0);
+        const debtOwed = Math.max(0, depositAfterComm - uplineBalance);
+        if (debtOwed > 0) {
+          await User.findByIdAndUpdate(currentUser._id, {
+            debtAmount: debtOwed,
+            isDashboardLocked: true,
+            debtToUplineId: currentUser.referredBy || null
+          });
+        } else {
+          await User.findByIdAndUpdate(currentUser._id, {
+            $inc: { balance: commissionAmount, totalCommissions: commissionAmount }
+          });
+        }
+      } else {
+        await User.findByIdAndUpdate(currentUser._id, {
+          $inc: { balance: commissionAmount, totalCommissions: commissionAmount }
+        });
+      }
 
-      // Send notification
       if (currentUser.telegramChatId) {
         await telegramService.sendMessage(
           currentUser.telegramChatId,
-          `💰 Commission earned!\n` +
-            `Amount: ${commissionAmount.toLocaleString()} ETB\n` +
-            `Level: ${level}\n` +
-            `From: ${user.fullName}'s deposit`
+          `Commission earned: ${commissionAmount.toLocaleString()} ETB (Gen ${level}) from ${user.fullName}'s deposit`
         );
       }
 
-      // Move to next level
-      const nextUser = await User.findById(currentUser._id).populate(
-        "referredBy"
-      );
+      const nextUser = await User.findById(currentUser._id).populate("referredBy");
       currentUser = nextUser?.referredBy;
       level++;
     }
@@ -575,6 +580,85 @@ router.post("/jobs/vip-bonuses", checkAdminPermission("super_admin"), async (req
   } catch (error) {
     console.error("Manual VIP bonuses job error:", error);
     res.status(500).json({ message: "Failed to execute VIP bonuses job" });
+  }
+});
+
+// Time-based analytics
+router.get("/analytics", checkAdminPermission("admin"), async (req, res) => {
+  try {
+    const { period, startDate, endDate } = req.query;
+    let dateFilter = {};
+    const now = new Date();
+
+    if (period === "today") {
+      const start = new Date(now); start.setHours(0,0,0,0);
+      const end = new Date(now); end.setHours(23,59,59,999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    } else if (period === "week") {
+      const start = new Date(now); start.setDate(now.getDate() - 7); start.setHours(0,0,0,0);
+      dateFilter = { createdAt: { $gte: start, $lte: now } };
+    } else if (period === "month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    } else if (period === "custom" && startDate && endDate) {
+      dateFilter = { createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) } };
+    }
+
+    const [depositsRes, withdrawalsRes, newUsers, activeUsers, commissions] = await Promise.all([
+      Deposit.aggregate([{ $match: { status: "completed", ...dateFilter } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+      Withdrawal.aggregate([{ $match: { status: "completed", ...dateFilter } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+      User.countDocuments({ role: "user", ...dateFilter }),
+      User.countDocuments({ role: "user", isActive: true }),
+      Commission.aggregate([{ $match: dateFilter }, { $group: { _id: null, total: { $sum: "$amount" } } }])
+    ]);
+
+    // Company balance = total deposits - total withdrawals - total commissions paid
+    const totalDep = depositsRes[0]?.total || 0;
+    const totalWith = withdrawalsRes[0]?.total || 0;
+    const totalComm = commissions[0]?.total || 0;
+
+    res.json({
+      period: period || "all",
+      deposits: { total: totalDep, count: depositsRes[0]?.count || 0 },
+      withdrawals: { total: totalWith, count: withdrawalsRes[0]?.count || 0 },
+      commissions: { total: totalComm },
+      newUsers,
+      activeUsers,
+      companyBalance: totalDep - totalWith - totalComm
+    });
+  } catch (error) {
+    console.error("Analytics error:", error);
+    res.status(500).json({ message: "Error fetching analytics" });
+  }
+});
+
+// Monthly salary management - list users with pending monthly salary
+router.get("/monthly-salaries", checkAdminPermission("admin"), async (req, res) => {
+  try {
+    const users = await User.find({ monthlyBalance: { $gt: 0 } })
+      .select("fullName email phoneNumber monthlyBalance directReferrals totalTeamSize")
+      .sort({ monthlyBalance: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Admin pays monthly salary to user
+router.post("/pay-monthly-salary/:userId", checkAdminPermission("super_admin"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.monthlyBalance <= 0) return res.status(400).json({ message: "No pending salary" });
+
+    const amount = user.monthlyBalance;
+    user.monthlyBalance = 0;
+    await user.save();
+
+    res.json({ success: true, message: `Paid ${amount} ETB salary to ${user.fullName}`, amount });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

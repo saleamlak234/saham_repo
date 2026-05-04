@@ -38,6 +38,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const vipRoutes = require('./routes/vip');
 const dailyReturnsRoutes = require('./routes/dailyReturns');
+const paymentRoutes = require('./routes/payments');
+const videoRewardRoutes = require('./routes/videoRewards');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
@@ -75,6 +77,11 @@ const receiptsDir = path.join(__dirname, 'uploads', 'receipts');
 if (!fs.existsSync(receiptsDir)) {
   fs.mkdirSync(receiptsDir, { recursive: true });
 }
+// Create videos subdirectory
+const videosDir = path.join(__dirname, 'uploads', 'videos');
+if (!fs.existsSync(videosDir)) {
+  fs.mkdirSync(videosDir, { recursive: true });
+}
 // Serve static files
 app.use('/uploads', express.static(uploadsDir));
 
@@ -100,6 +107,8 @@ app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/vip', authMiddleware, vipRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/daily-returns', authMiddleware, dailyReturnsRoutes);
+app.use('/api/payments', authMiddleware, paymentRoutes);
+app.use('/api/video-rewards', authMiddleware, videoRewardRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
