@@ -89,13 +89,19 @@ export default function ParentPendingPayments() {
     }
   };
 
-  const downloadReceipt = (paymentId: string) => {
-    const token = localStorage.getItem('token');
-    window.open(`/api/payments/receipt/${paymentId}?download=true`, '_blank');
+  const getServerBase = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    return apiBase.replace('/api', '');
   };
 
-  const viewReceipt = (url: string) => {
-    setPreviewUrl(url);
+  const downloadReceipt = (paymentId: string) => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    window.open(`${apiBase}/payments/receipt/${paymentId}?download=true`, '_blank');
+  };
+
+  const viewReceipt = (receiptUrl: string) => {
+    const fullUrl = receiptUrl.startsWith('http') ? receiptUrl : `${getServerBase()}${receiptUrl}`;
+    setPreviewUrl(fullUrl);
   };
 
   if (loading) {
@@ -174,7 +180,7 @@ export default function ParentPendingPayments() {
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => viewReceipt(`/api/payments/receipt/${payment._id}`)}
+                    onClick={() => viewReceipt(payment.receiptUrl)}
                     className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     <Eye className="w-4 h-4" /> View Receipt

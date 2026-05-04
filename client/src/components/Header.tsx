@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { env } from '../config/env';
-import { TrendingUp, User, Menu, X, LogOut, DollarSign, Users, Award, ChartBar as BarChart3, Shield, Crown } from 'lucide-react';
+import { TrendingUp, User, Menu, X, LogOut, DollarSign, Users, Award, Shield, Crown } from 'lucide-react';
 import PackageSlider from './PackageSlider';
 
 export default function Header() {

@@ -160,7 +160,11 @@ export default function VideoReward({ onRewardClaimed }: VideoRewardProps) {
 
             <div className="bg-gray-900 aspect-video flex items-center justify-center">
               <video
-                src={selectedVideo.videoUrl}
+                src={(() => {
+                  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+                  const serverBase = apiBase.replace('/api', '');
+                  return selectedVideo.videoUrl.startsWith('http') ? selectedVideo.videoUrl : `${serverBase}${selectedVideo.videoUrl}`;
+                })()}
                 controls
                 className="w-full h-full"
                 controlsList="nodownload"

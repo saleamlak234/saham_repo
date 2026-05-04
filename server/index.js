@@ -56,9 +56,17 @@ const app = express();
 // Middleware
 app.use(
   cors({
-     origin:['http://www.sahamtradingplc.com', 'https://www.sahamtradingplc.com'],
+    origin: [
+      'http://www.sahamtradingplc.com',
+      'https://www.sahamtradingplc.com',
+      'http://sahamtradingplc.com',
+      'https://sahamtradingplc.com',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:4173'
+    ],
     optionsSuccessStatus: 200,
-   allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   })

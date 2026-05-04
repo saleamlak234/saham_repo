@@ -3,11 +3,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { env } from '../config/env';
 
+interface BankAccount {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  branchName: string;
+  isDefault: boolean;
+}
+
 interface User {
   id: string;
   email: string;
   fullName: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'super_admin' | 'transaction_admin';
   phoneNumber: string;
   referralCode: string;
   referredBy?: string;
@@ -20,6 +28,22 @@ interface User {
   totalTeamSize: number;
   isActive: boolean;
   createdAt: string;
+  // VIP
+  vipLevel?: number;
+  vipBadge?: 'none' | 'bronze' | 'silver' | 'gold' | 'platinum';
+  vipMonthlyBonus?: number;
+  // Debt system
+  isDashboardLocked?: boolean;
+  debtAmount?: number;
+  debtToUplineId?: string;
+  // Monthly salary
+  monthlyBalance?: number;
+  // Payment info
+  paymentInfo?: {
+    bankAccounts: BankAccount[];
+    telebirr: { phoneNumber: string; fullName: string; isActive: boolean };
+    cbeBirr: { phoneNumber: string; fullName: string; isActive: boolean };
+  };
 }
 
 interface AuthContextType {

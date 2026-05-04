@@ -31,7 +31,6 @@ interface CommissionStats {
   level1Commissions: number;
   level2Commissions: number;
   level3Commissions: number;
-  level4Commissions: number;
   recentCommissions: Commission[];
 }
 
@@ -75,9 +74,8 @@ export default function Commissions() {
   const getLevelPercentage = (level: number) => {
     switch (level) {
       case 1: return '8%';
-      case 2: return '4%';
-      case 3: return '2%';
-      case 4: return '1%';
+      case 2: return '6%';
+      case 3: return '4%';
       default: return '0%';
     }
   };
@@ -181,7 +179,7 @@ export default function Commissions() {
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                     <div>
-                      <p className="font-medium text-gray-900">Level 1 (8%)</p>
+                      <p className="font-medium text-gray-900">Generation 1 (8%)</p>
                       <p className="text-sm text-gray-600">Direct referrals</p>
                     </div>
                   </div>
@@ -194,8 +192,8 @@ export default function Commissions() {
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                     <div>
-                      <p className="font-medium text-gray-900">Level 2 (4%)</p>
-                      <p className="text-sm text-gray-600">2nd level referrals</p>
+                      <p className="font-medium text-gray-900">Generation 2 (6%)</p>
+                      <p className="text-sm text-gray-600">2nd generation</p>
                     </div>
                   </div>
                   <p className="font-semibold text-gray-900">
@@ -203,29 +201,16 @@ export default function Commissions() {
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                     <div>
-                      <p className="font-medium text-gray-900">Level 3 (2%)</p>
-                      <p className="text-sm text-gray-600">3rd level referrals</p>
+                      <p className="font-medium text-gray-900">Generation 3 (4%)</p>
+                      <p className="text-sm text-gray-600">3rd generation</p>
                     </div>
                   </div>
                   <p className="font-semibold text-gray-900">
                     {(stats?.level3Commissions || 0).toLocaleString()} ETB
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <div>
-                      <p className="font-medium text-gray-900">Level 4 (1%)</p>
-                      <p className="text-sm text-gray-600">4th level referrals</p>
-                    </div>
-                  </div>
-                  <p className="font-semibold text-gray-900">
-                    {(stats?.level4Commissions || 0).toLocaleString()} ETB
                   </p>
                 </div>
               </div>
@@ -326,19 +311,19 @@ export default function Commissions() {
               <ul className="space-y-2 text-primary-700">
                 <li className="flex items-center space-x-2">
                   <ArrowRight className="h-4 w-4" />
-                  <span>Level 1 (Direct): 8% commission</span>
+                  <span>Generation 1 (Direct): 8% commission</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <ArrowRight className="h-4 w-4" />
-                  <span>Level 2: 4% commission</span>
+                  <span>Generation 2: 6% commission</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <ArrowRight className="h-4 w-4" />
-                  <span>Level 3: 2% commission</span>
+                  <span>Generation 3: 4% commission</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <ArrowRight className="h-4 w-4" />
-                  <span>Level 4: 1% commission</span>
+                  <span>Generation 4+: Goes to company</span>
                 </li>
               </ul>
             </div>

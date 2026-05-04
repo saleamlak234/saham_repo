@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, DollarSign, TrendingUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Clock, ArrowUpRight, ArrowDownRight, Eye, UserCheck, UserX, Video, ChartBar as BarChart2, CirclePlay as PlayCircle, Wallet } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Clock, ArrowUpRight, ArrowDownRight, Eye, UserCheck, UserX, Video, ChartBar as BarChart2, Play as PlayCircle, Wallet } from 'lucide-react';
 import axios from 'axios';
 
 interface AdminStats {

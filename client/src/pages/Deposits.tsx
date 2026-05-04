@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ImagePreviewModal from '../components/ImagePreviewModal';
-import { Plus, Upload, CreditCard, Smartphone, Clock, CircleCheck as CheckCircle, Circle as XCircle, Camera, DollarSign, Copy, CircleCheck as CheckCircle2, Eye, Calculator, TrendingUp } from 'lucide-react';
+import { Plus, Upload, CreditCard, Smartphone, Clock, CircleCheck as CheckCircle, Circle as XCircle, Camera, DollarSign, Copy, Eye, TrendingUp } from 'lucide-react';
+const CheckCircle2 = CheckCircle;
 import axios from 'axios';
 
 interface Deposit {
@@ -58,6 +59,7 @@ export default function Deposits() {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [upgradeableDeposits, setUpgradeableDeposits] = useState<Deposit[]>([]);
   const [merchantAccounts, setMerchantAccounts] = useState<MerchantAccount[]>([]);
+  const [uplineInfo, setUplineInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showDepositForm, setShowDepositForm] = useState(false);
   const [showUpgradeForm, setShowUpgradeForm] = useState(false);
@@ -72,7 +74,9 @@ export default function Deposits() {
     package: '',
     paymentMethod: 'bank_transfer' as 'bank_transfer' | 'mobile_money',
     merchantAccountId: '',
-    transactionReference: ''
+    transactionReference: '',
+    selectedMethodType: 'bank' as 'bank' | 'telebirr' | 'cbeBirr',
+    selectedBankName: ''
   });
   const [upgradeFormData, setUpgradeFormData] = useState({
     newPackage: '',
@@ -95,14 +99,16 @@ export default function Deposits() {
 
   const fetchData = async () => {
     try {
-      const [depositsResponse, merchantAccountsResponse, upgradeableResponse] = await Promise.all([
+      const [depositsResponse, merchantAccountsResponse, upgradeableResponse, uplineRes] = await Promise.all([
         axios.get('/deposits'),
-        axios.get('/deposits/merchant-accounts'),
-        axios.get('/deposits/upgradeable')
+        axios.get('/deposits/merchant-accounts').catch(() => ({ data: { merchantAccounts: [] } })),
+        axios.get('/deposits/upgradeable').catch(() => ({ data: { upgradeableDeposits: [] } })),
+        axios.get('/payments/upline-payment-info').catch(() => null)
       ]);
 
       setDeposits(depositsResponse.data.deposits);
       setMerchantAccounts(merchantAccountsResponse.data.merchantAccounts);
+      if (uplineRes) setUplineInfo(uplineRes.data);
       setUpgradeableDeposits(upgradeableResponse.data.upgradeableDeposits);
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -210,19 +216,26 @@ export default function Deposits() {
 
     try {
       const selectedPkg = PACKAGES.find(p => p.name === formData.package);
-      const formDataToSend = new FormData();
-      formDataToSend.append('amount', formData.amount);
-      formDataToSend.append('package', formData.package);
-      // New fields for parent-approval flow
-      if (selectedPkg) formDataToSend.append('packageLevel', selectedPkg.level.toString());
-      formDataToSend.append('paymentMethod', formData.paymentMethod);
-      formDataToSend.append('merchantAccountId', formData.merchantAccountId || '');
-      formDataToSend.append('transactionReference', formData.transactionReference);
-      if (receipt) {
-        formDataToSend.append('receipt', receipt);
-      }
+      if (!selectedPkg) { setError('Please select a package'); setSubmitting(false); return; }
+      if (!receipt) { setError('Please upload a payment receipt'); setSubmitting(false); return; }
 
-      // Use payments route for parent-approval flow, fallback to deposits
+      const uplinePayInfo = uplineInfo?.paymentInfo;
+      const bankAcc = formData.selectedMethodType === 'bank'
+        ? uplinePayInfo?.bankAccounts?.find((a: any) => a.bankName === formData.selectedBankName)
+        : null;
+
+      const formDataToSend = new FormData();
+      formDataToSend.append('packageLevel', selectedPkg.level.toString());
+      formDataToSend.append('transactionReference', formData.transactionReference);
+      formDataToSend.append('methodType', formData.selectedMethodType);
+      formDataToSend.append('bankName', formData.selectedMethodType === 'bank' ? formData.selectedBankName : '');
+      formDataToSend.append('phoneNumber',
+        formData.selectedMethodType === 'telebirr' ? (uplinePayInfo?.telebirr?.phoneNumber || '') :
+        formData.selectedMethodType === 'cbeBirr' ? (uplinePayInfo?.cbeBirr?.phoneNumber || '') : '');
+      formDataToSend.append('accountNumber', bankAcc?.accountNumber || '');
+      formDataToSend.append('accountName', bankAcc?.accountName || '');
+      formDataToSend.append('receipt', receipt);
+
       await axios.post('/payments/submit-deposit', formDataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -233,7 +246,9 @@ export default function Deposits() {
         package: '',
         paymentMethod: 'bank_transfer',
         merchantAccountId: '',
-        transactionReference: ''
+        transactionReference: '',
+        selectedMethodType: 'bank',
+        selectedBankName: ''
       });
       setReceipt(null);
       setReceiptPreview('');
@@ -264,12 +279,9 @@ export default function Deposits() {
   };
 
   const viewReceipt = (receiptUrl: string) => {
-    const baseURL = 'http://www.sahamtradingplc.com ||https://www.sahamtradingplc.com || http://localhost:5000/api'; // Adjust base URL as needed
-     const fullReceiptUrl = receiptUrl.startsWith(
-    "http|https|https|ftp|ftps|file|telnet|irc|gopher|nntp|news|ftps|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https|http|https"
-    )
-      ?receiptUrl
-  : `${baseURL}${receiptUrl}`;;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    const serverBase = apiBase.replace('/api', '');
+    const fullReceiptUrl = receiptUrl.startsWith('http') ? receiptUrl : `${serverBase}${receiptUrl}`;
     setImagePreview({
       isOpen: true,
       imageUrl: fullReceiptUrl,
@@ -420,105 +432,109 @@ export default function Deposits() {
                       <label className="block mb-2 text-sm font-medium text-gray-700">
                         Payment Method
                       </label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div
-                          onClick={() => setFormData(prev => ({ ...prev, paymentMethod: 'bank_transfer' }))}
-                          className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${formData.paymentMethod === 'bank_transfer'
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                      <div className="grid grid-cols-3 gap-3">
+                        {(['bank', 'telebirr', 'cbeBirr'] as const).map(m => (
+                          <div key={m}
+                            onClick={() => setFormData(prev => ({ ...prev, selectedMethodType: m, selectedBankName: '' }))}
+                            className={`p-3 border-2 rounded-lg cursor-pointer transition-all text-center ${
+                              formData.selectedMethodType === m ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                             }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <CreditCard className="w-5 h-5 text-primary-600" />
-                            <span className="font-medium">Bank Transfer</span>
+                          >
+                            <span className="font-medium text-sm">{m === 'bank' ? 'Bank Transfer' : m === 'telebirr' ? 'Telebirr' : 'CBE Birr'}</span>
                           </div>
-                        </div>
-
-                        <div
-                          onClick={() => setFormData(prev => ({ ...prev, paymentMethod: 'mobile_money' }))}
-                          className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${formData.paymentMethod === 'mobile_money'
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <Smartphone className="w-5 h-5 text-primary-600" />
-                            <span className="font-medium">Mobile Money</span>
-                          </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Merchant Account Selection */}
-                  <div>
-                    <label className="block mb-2 text-sm font-medium text-gray-700">
-                      Select Payment Account
-                    </label>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      {merchantAccounts
-                        .filter(acc =>
-                          (formData.paymentMethod === 'bank_transfer' && acc.type === 'bank') ||
-                          (formData.paymentMethod === 'mobile_money' && acc.type === 'mobile_money')
-                        )
-                        .map((account) => (
-                          <div
-                            key={account._id}
-                            onClick={() => setFormData(prev => ({ ...prev, merchantAccountId: account._id }))}
-                            className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.merchantAccountId === account._id
-                              ? 'border-primary-500 bg-primary-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                          >
-                            <h4 className="font-semibold text-gray-900">{account.name}</h4>
-                            <div className="mt-2 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-600">Account:</span>
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-mono text-sm">{account.accountNumber}</span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      copyToClipboard(account.accountNumber);
-                                    }}
-                                    className="text-primary-600 hover:text-primary-700"
-                                  >
-                                    {copiedText === account.accountNumber ? (
-                                      <CheckCircle2 className="w-4 h-4" />
-                                    ) : (
-                                      <Copy className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                </div>
+                  {/* Upline Payment Info */}
+                  {uplineInfo ? (
+                    <div>
+                      <label className="block mb-2 text-sm font-medium text-gray-700">
+                        Pay To Your Parent ({uplineInfo.fullName})
+                      </label>
+                      {formData.selectedMethodType === 'bank' && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
+                            {(uplineInfo.paymentInfo?.bankAccounts || []).map((acc: any, i: number) => (
+                              <div key={i}
+                                onClick={() => setFormData(prev => ({ ...prev, selectedBankName: acc.bankName }))}
+                                className={`p-3 border-2 rounded-lg cursor-pointer text-xs transition-all ${
+                                  formData.selectedBankName === acc.bankName ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <p className="font-semibold text-gray-900">{acc.bankName}</p>
+                                <p className="text-gray-600">{acc.accountName}</p>
+                                <p className="font-mono text-gray-700">{acc.accountNumber}</p>
+                                {acc.isDefault && <span className="text-green-600 font-medium">Default</span>}
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-600">Name:</span>
-                                <span className="text-sm">{account.accountName}</span>
-                              </div>
-                              {account.bankName && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-gray-600">Bank:</span>
-                                  <span className="text-sm">{account.bankName}</span>
+                            ))}
+                          </div>
+                          {formData.selectedBankName && (() => {
+                            const acc = uplineInfo.paymentInfo?.bankAccounts?.find((a: any) => a.bankName === formData.selectedBankName);
+                            return acc ? (
+                              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                                <p className="font-semibold text-blue-900 mb-1">Transfer to: {acc.bankName}</p>
+                                <div className="flex justify-between"><span className="text-gray-500">Account Name:</span><span className="font-medium">{acc.accountName}</span></div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Account No:</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-mono">{acc.accountNumber}</span>
+                                    <button type="button" onClick={() => copyToClipboard(acc.accountNumber)}>
+                                      {copiedText === acc.accountNumber ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-primary-500" />}
+                                    </button>
+                                  </div>
                                 </div>
-                              )}
+                                {acc.branchName && <div className="flex justify-between"><span className="text-gray-500">Branch:</span><span>{acc.branchName}</span></div>}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                      {formData.selectedMethodType === 'telebirr' && (
+                        uplineInfo.paymentInfo?.telebirr?.isActive ? (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                            <p className="font-semibold text-blue-900 mb-1">Transfer via Telebirr</p>
+                            <div className="flex justify-between"><span className="text-gray-500">Name:</span><span className="font-medium">{uplineInfo.paymentInfo.telebirr.fullName}</span></div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Phone:</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono">{uplineInfo.paymentInfo.telebirr.phoneNumber}</span>
+                                <button type="button" onClick={() => copyToClipboard(uplineInfo.paymentInfo.telebirr.phoneNumber)}>
+                                  <Copy className="w-3 h-3 text-primary-500" />
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        ))}
+                        ) : <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">Your parent hasn't set up Telebirr.</p>
+                      )}
+                      {formData.selectedMethodType === 'cbeBirr' && (
+                        uplineInfo.paymentInfo?.cbeBirr?.isActive ? (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                            <p className="font-semibold text-blue-900 mb-1">Transfer via CBE Birr</p>
+                            <div className="flex justify-between"><span className="text-gray-500">Name:</span><span className="font-medium">{uplineInfo.paymentInfo.cbeBirr.fullName}</span></div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Phone:</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono">{uplineInfo.paymentInfo.cbeBirr.phoneNumber}</span>
+                                <button type="button" onClick={() => copyToClipboard(uplineInfo.paymentInfo.cbeBirr.phoneNumber)}>
+                                  <Copy className="w-3 h-3 text-primary-500" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">Your parent hasn't set up CBE Birr.</p>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Payment Instructions */}
-                  {selectedMerchantAccount && (
-                    <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
-                      <h4 className="mb-2 font-semibold text-blue-900">Payment Instructions</h4>
-                      <p className="text-sm text-blue-800">{selectedMerchantAccount.instructions}</p>
+                  ) : (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                      No upline found. You need to be referred by someone to make a deposit.
                     </div>
                   )}
 
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-700">
-                      Transaction Reference (Optional)
+                      Transaction Reference *
                     </label>
                     <input
                       type="text"
@@ -526,12 +542,13 @@ export default function Deposits() {
                       onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       placeholder="Enter transaction reference or ID"
+                      required
                     />
                   </div>
 
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-700">
-                      Payment Receipt (Optional)
+                      Payment Receipt *
                     </label>
                     <div className="p-6 text-center border-2 border-gray-300 border-dashed rounded-lg">
                       <input
@@ -572,7 +589,7 @@ export default function Deposits() {
                     </button>
                     <button
                       type="submit"
-                      disabled={submitting || !formData.merchantAccountId}
+                      disabled={submitting || !uplineInfo}
                       className="flex items-center justify-center flex-1 px-4 py-3 font-medium text-white rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitting ? (
